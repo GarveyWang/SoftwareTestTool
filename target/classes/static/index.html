@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" >
+
+<head>
+	<meta content="text/html"/>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1"/>
+	<title>Test Tool</title>
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+	<script src="js/jquery-3.2.1.min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<script src="js/d3.min.js"></script>
+</head>
+<body>
+<div class="container">
+	<div class="form-group col-sm-5">
+		<h3>选择Java文件</h3>
+		<input id="javaFile" type="file" name="file" style="display: none;" />
+		<div class="input-group">
+			<input id="javaFileName" type="text" class="form-control">
+			<span class="input-group-btn">
+				<button id="browseJavaBtn" class="btn btn-default" type="button">浏览</button>
+			</span>
+			<span class="input-group-btn">
+				<button id="compile" class="btn btn-default" type="button">编译</button>
+			</span>
+		</div>
+		<h3 id="clsName"></h3>
+		<div id="methodSelectDiv" class="input-group">
+			<div class="input-group-btn">
+				<select name="methodName" class="form-control" id="methodSelect" >
+				</select>
+			</div>
+			<span class="input-group-btn">
+				<button id="testBtn" class="btn btn-default" type="button">测试</button>
+			</span>
+		</div>
+	</div>
+	<div class="form-group col-sm-5">
+		<h3>选择CSV文件</h3>
+		<input id="csvFile" type="file" name="file" style="display: none;" />
+		<div class="input-group">
+			<input id="csvFileName" type="text" class="form-control">
+			<span class="input-group-btn">
+				<button id="browseCSVBtn" class="btn btn-default" type="button">浏览</button>
+			</span>
+			<span class="input-group-btn">
+				<button id="uploadCSVBtn" class="btn btn-default" type="button">上传</button>
+			</span>
+		</div>
+	</div>
+
+	<div class="col-lg-10">
+		<svg id="pie" width="500" height="500"></svg>
+	</div>
+
+	<div class="col-lg-10">
+		<table class="table" id="failedResult">
+		</table>
+	</div>
+	<div class="col-lg-10">
+		<table class="table" id="passedResult">
+		</table>
+	</div>
+</div>
+
+<script>
+	$(document).ready(function () {
+	    $("#methodSelectDiv").hide();
+		$("#passedResult").hide();
+		$("#failedResult").hide();
+
+	    $("#browseJavaBtn").click(function () {
+			$("#javaFile").click();
+        })
+		$("#javaFile").change(function () {
+			$("#javaFileName").val($(this).val())
+        })
+        $("#browseCSVBtn").click(function () {
+            $("#csvFile").click();
+        })
+        $("#csvFile").change(function () {
+            $("#csvFileName").val($(this).val())
+        })
+
+        $("#compile").click(function (){
+            var formData = new FormData();
+            formData.append('file', $('#javaFile')[0].files[0]);
+            $.ajax({
+                url: 'http://localhost:8080/compile',
+                type: 'POST',
+                cache: false,
+                data: formData,
+                processData: false,
+                contentType: false
+            }).done(function(res) {
+                $("#methodSelect").empty()
+				$("#clsName").html("Class Name: "  + res.clsName);
+
+				$("#methodSelectDiv").show()
+
+				var opts = "";
+				for (var i=0;i<res.methodNames.length;++i){
+				    opts += ("<option value=\'" + res.methodNames[i] + " " + res.paras[i] +  "\'>"+ res.returnTypes[i] + ":" + res.methodNames[i] + "(" + res.paras[i] + ")</option>")
+				}
+                $("#methodSelect").append(opts)
+
+
+            }).fail(function(res) {
+                alert("上传失败")
+			});
+        })
+
+        $("#uploadCSVBtn").click(function () {
+            var formData = new FormData();
+            formData.append('file', $('#csvFile')[0].files[0]);
+            $.ajax({
+                url: 'http://localhost:8080/uploadcsv',
+                type: 'POST',
+                cache: false,
+                data: formData,
+                processData: false,
+                contentType: false
+            }).done(function (res) {
+				alert("上传成功")
+            }).fail(function (res) {
+                alert("上传失败")
+            });
+        });
+
+        $("#testBtn").click(function () {
+            $.ajax({
+                url: "/test",
+                type: "POST",
+                datatype:"text",
+                async:true,
+                data: {"signature":$("#methodSelect").val()},
+                success:function (data) {
+                    $("#passedResult").empty();
+                    $("#failedResult").empty();
+                    $("#passedResult").append("<thead><tr><th>输入</th><th>输出</th><th>期望</th><th>通过</th></tr></thead><tbody>");
+                    $("#failedResult").append("<thead><tr><th>输入</th><th>输出</th><th>期望</th><th>通过</th></tr></thead><tbody>");
+                    if (data.failed>0){
+                        $("#failedResult").show();
+					}
+					if (data.passed>0){
+                        $("#passedResult").show();
+					}
+                    for(var i=0;i<data.results.length;++i){
+                        var tr="<tr>";
+						tr+=("<td>"+data.inputs[i]+"</td>");
+                        tr+=("<td>"+data.outputs[i]+"</td>");
+                        tr+=("<td>"+data.expects[i]+"</td>");
+                        tr+=("<td>"+data.results[i]+"</td>");
+                        tr+="</tr>";
+
+                        if(data.results[i].toString()=="true"){
+                            $("#passedResult").append(tr);
+						}else {
+                            $("#failedResult").append(tr);
+						}
+					}
+					$("#passedResult").append("</tbody>");
+                    $("#failedResult").append("</tbody>");
+
+                    function PieData(dataname, datavalue) {
+                        var pdata = new Object;
+                        pdata.dataname=dataname;
+                        pdata.datavalue=datavalue;
+                        return pdata;
+                    }
+
+
+                    $("#pie").empty();
+                    var pie_svg=d3.select("#pie");
+                    var pie_width=pie_svg.attr("width");
+                    var pie_height=pie_svg.attr("height");
+                    var radius=Math.min(pie_width,pie_height)/4;
+                    var pie_g = pie_svg.append("g").attr("transform", "translate(" + pie_width / 2 + "," + pie_height / 2 + ")");
+                    var color = d3.scaleOrdinal().domain(d3.range(0, 2)).range(d3.schemeCategory10);
+                    var pie = d3.pie().sort(null).value(function (d) {
+                        return d;
+                    })
+                    var path=d3.arc().outerRadius(radius-10).innerRadius(radius/2);
+                    var label=d3.arc().outerRadius(radius-40).innerRadius(radius-40);
+                    var arc=pie_g.selectAll(".arc").data(pie([data.passed,data.failed])).enter().append("g").attr("class","arc");
+                    arc.append("path").attr("d",path).attr("fill",function (d) {
+                        return color(d.index);
+                    });
+
+                    arc.append("text")
+                        .attr("transform", function(d) {
+                            var x=label.centroid(d)[0]*1.7;
+                            var y=label.centroid(d)[1]*1.7;
+                            return "translate(" + x + "," + y + ")";
+                        }).data(["通过:"+data.passed+"("+ (data.passed*100.0/(data.passed+data.failed)).toFixed(2) +"%)",
+						"未通过:"+data.failed+"("+ (data.failed*100.0/(data.passed+data.failed)).toFixed(2) +"%)"])
+                        .attr("dy", "0.35em")
+                        .style("text-anchor","middle")
+                        .text(function(d) {
+                            return d;
+                        });
+
+
+                    return false
+                },
+				error:function () {
+					alert("测试失败")
+                }
+            })
+			return false
+        })
+    })
+</script>
+
+</body>
+</html>
