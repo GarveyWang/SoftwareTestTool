@@ -138,8 +138,8 @@
                 success:function (data) {
                     $("#passedResult").empty();
                     $("#failedResult").empty();
-                    $("#passedResult").append("<thead><tr><th>输入</th><th>输出</th><th>期望</th><th>通过</th></tr></thead><tbody>");
-                    $("#failedResult").append("<thead><tr><th>输入</th><th>输出</th><th>期望</th><th>通过</th></tr></thead><tbody>");
+                    $("#passedResult").append("<thead><caption><h3>通过</h3></caption><tr><th>输入</th><th>输出</th><th>期望</th><th>通过</th></tr></thead><tbody>");
+                    $("#failedResult").append("<thead><caption><h3>未通过</h3></caption><tr><th>输入</th><th>输出</th><th>期望</th><th>通过</th></tr></thead><tbody>");
                     if (data.failed>0){
                         $("#failedResult").show();
 					}
